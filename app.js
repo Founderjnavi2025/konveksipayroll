@@ -107,7 +107,9 @@ function showPage(id){
     const el = $(p); if(el) el.style.display = (p === id ? '' : 'none');
   });
 }
-function switchRoomPage(p){
+window.showPage = showPage;
+
+window.switchRoomPage = function(p){
   document.querySelectorAll('#page-room .page').forEach(el => el.classList.remove('active'));
   $('page-'+p).classList.add('active');
   document.querySelectorAll('#page-room nav button').forEach(b => {
@@ -116,7 +118,7 @@ function switchRoomPage(p){
   if(p === 'hud') renderHUD();
   if(p === 'gaji') renderGaji();
   if(p === 'pekerja'){ renderWorkers(); renderRiwayat(); }
-}
+};
 
 /* ═══════════════════════════════════════════════════════════
    AUTH
@@ -156,7 +158,7 @@ window.doSignupSubmit = async function(){
   if(pass.length < 6){ toast('Password minimal 6 karakter', true); return; }
   try{
     $('btnLogin').textContent = 'MEMBUAT...';
-    const user = await auth.signup(email, pass, email.split('@')[0]);
+    await auth.signup(email, pass, email.split('@')[0]);
     toast('Akun dibuat. Silakan login.');
     doLoginMode();
   }catch(e){
@@ -447,7 +449,7 @@ window.enterRoom = async function(roomId){
   $('roomSub').textContent = '/' + room.slug + ' • ' + (S.profile.nama || '');
 
   showPage('page-room');
-  switchRoomPage('hud');
+  window.switchRoomPage('hud');
 };
 
 window.exitRoom = function(){
