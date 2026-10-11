@@ -1,3 +1,4 @@
+
 /* ═══════════════════════════════════════════════════════════
    KONVEKSI HUD MULTI-ROOM — Logic Utama
    ═══════════════════════════════════════════════════════════ */
@@ -5,10 +6,10 @@ import { DB, auth, isOnline } from './supabase.js';
 
 /* ────────── STATE GLOBAL ────────── */
 const S = {
-  user: null,          // { id, email }
-  profile: null,       // { id, nama, role }
-  rooms: [],           // daftar room milik user / semua (super admin)
-  room: null,          // room aktif
+  user: null,
+  profile: null,
+  rooms: [],
+  room: null,
   workers: [],
   jobs: [],
   tarifs: {},
@@ -45,8 +46,8 @@ function toast(msg, err){
   clearTimeout(t._t);
   t._t = setTimeout(()=>{ t.className=''; }, 2400);
 }
-const openModal = id => $(id).classList.add('show');
-const closeModal = id => $(id).classList.remove('show');
+window.openModal = id => $(id).classList.add('show');
+window.closeModal = id => $(id).classList.remove('show');
 
 /* ────────── HITUNG UPAH (port dari jait.html) ────────── */
 function hitungUpah(pcs, tarif, satuan){
@@ -64,7 +65,7 @@ function fmtJumlahLusinPcs(pcs){
   return s + ' = ' + pcs + ' pcs';
 }
 
-/* ────────── MINGGU KERJA (Senin–Minggu) ────────── */
+/* ────────── MINGGU KERJA (Senin-Minggu) ────────── */
 function getWeekStart(d){
   const dt = new Date(d);
   const day = dt.getDay();
@@ -84,7 +85,7 @@ function weekKey(d){
 function weekLabel(d){
   const s = getWeekStart(d), e = getWeekEnd(d);
   const bln = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
-  return s.getDate()+' '+bln[s.getMonth()]+' – '+e.getDate()+' '+bln[e.getMonth()];
+  return s.getDate()+' '+bln[s.getMonth()]+' - '+e.getDate()+' '+bln[e.getMonth()];
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -138,7 +139,6 @@ window.doLogin = async function(){
 
 window.doSignup = async function(){
   if(!signupMode){
-    // ganti ke mode signup
     signupMode = true;
     $('loginSub').textContent = 'Daftar akun baru';
     $('btnLogin').textContent = 'DAFTAR';
@@ -192,8 +192,6 @@ async function bootAfterLogin(user){
     toast('Profil tidak ditemukan', true); return;
   }
 
-  // Kalau belum ada super admin di sistem DAN ini user pertama → jadikan super admin
-  // (hanya di mode local; di Supabase, role diatur manual / via Edge Function)
   if(!isOnline){
     const all = await DB.listAllProfiles();
     const hasSuper = all.some(p => p.role === 'super_admin');
@@ -214,13 +212,12 @@ async function bootAfterLogin(user){
 }
 
 /* ═══════════════════════════════════════════════════════════
-   SUPER ADMIN — Dashboard & CRUD Room
+   SUPER ADMIN
    ═══════════════════════════════════════════════════════════ */
 async function loadSuperAdmin(){
   const rooms = await DB.listAllRooms();
   const profiles = await DB.listAllProfiles();
 
-  // Statistik
   let totalWorkers = 0, totalJobs = 0;
   for(const r of rooms){
     const data = await DB.loadRoomData(r.id);
@@ -293,7 +290,7 @@ window.openRoomModal = function(){
   $('rm_mulai').value = today;
   $('rm_berakhir').value = plus30;
   $('rm_status').value = 'aktif';
-  openModal('roomModal');
+  window.openModal('roomModal');
 };
 
 window.editRoom = async function(id){
@@ -312,7 +309,7 @@ window.editRoom = async function(id){
   $('rm_mulai').value = r.mulai_at || '';
   $('rm_berakhir').value = r.berakhir_at || '';
   $('rm_status').value = r.status || 'aktif';
-  openModal('roomModal');
+  window.openModal('roomModal');
 };
 
 window.saveRoom = async function(){
@@ -322,7 +319,6 @@ window.saveRoom = async function(){
   if(!slug || !/^[a-z0-9-]{3,40}$/.test(slug)){ toast('Slug tidak valid', true); return; }
 
   if(S.editingRoomId){
-    // Update
     await DB.updateRoom(S.editingRoomId, {
       nama, slug,
       kontak: $('rm_kontak').value.trim(),
@@ -333,34 +329,28 @@ window.saveRoom = async function(){
     });
     toast('✓ Room diubah');
   }else{
-    // Buat baru
     const ownerEmail = $('rm_email').value.trim();
     const ownerNama = $('rm_owner').value.trim();
     const ownerPass = $('rm_password').value.trim();
     if(!ownerEmail){ toast('Isi email pemilik', true); return; }
     if(ownerPass.length < 6){ toast('Password minimal 6 karakter', true); return; }
 
-    // Cek slug unik
     const all = await DB.listAllRooms();
     if(all.some(x => x.slug === slug)){ toast('Slug sudah dipakai', true); return; }
 
-    // Buat / ambil akun pemilik
     let ownerId = null;
     try{
       const existing = await DB.findUserByEmail(ownerEmail);
       if(existing){
         ownerId = existing.id;
       }else{
-        const newUser = await auth.createUserByAdmin
-          ? await auth.createUserByAdmin(ownerEmail, ownerPass, ownerNama)
-          : await auth.signup(ownerEmail, ownerPass, ownerNama);
+        const newUser = await auth.createUserByAdmin(ownerEmail, ownerPass, ownerNama);
         ownerId = newUser.id;
       }
     }catch(e){
       toast('Gagal buat akun pemilik: ' + e.message, true); return;
     }
 
-    // Buat room
     const room = await DB.createRoom({
       nama, slug,
       pemilik_id: ownerId,
@@ -371,7 +361,6 @@ window.saveRoom = async function(){
       status: $('rm_status').value,
     });
 
-    // Tambahkan pemilik sebagai member
     if(ownerId){
       await DB.addRoomMember(room.id, ownerId, 'owner');
     }
@@ -379,7 +368,7 @@ window.saveRoom = async function(){
     toast('✓ Room dibuat. Pemilik: ' + ownerEmail);
   }
 
-  closeModal('roomModal');
+  window.closeModal('roomModal');
   await loadSuperAdmin();
 };
 
@@ -401,7 +390,7 @@ window.deleteRoom = async function(id){
 };
 
 /* ═══════════════════════════════════════════════════════════
-   ROOM PICKER (untuk owner)
+   ROOM PICKER
    ═══════════════════════════════════════════════════════════ */
 async function loadRoomPicker(){
   const rooms = await DB.listRoomsForUser(S.user.id);
@@ -429,7 +418,7 @@ async function loadRoomPicker(){
 }
 
 /* ═══════════════════════════════════════════════════════════
-   ENTER ROOM — Load data & tampilkan HUD obras
+   ENTER ROOM
    ═══════════════════════════════════════════════════════════ */
 window.enterRoom = async function(roomId){
   const room = await DB.getRoom(roomId);
@@ -442,7 +431,6 @@ window.enterRoom = async function(roomId){
   S.jobs = data.jobs;
   S.tarifs = data.tarifs;
 
-  // Kalau tarif kosong, isi default (hanya sekali)
   if(Object.keys(S.tarifs).length === 0){
     S.tarifs = {
       obras:   { tarif: 8000, satuan: 'lusin' },
@@ -478,7 +466,7 @@ function renderHUD(){
   const wrap = $('hudList');
   const aktif = S.jobs.filter(j => j.status === 'aktif');
   if(aktif.length === 0){
-    wrap.innerHTML = '<div class="empty"><span class="big">⬢</span>Tidak ada pekerjaan aktif.<br>Tekan ＋ KASIH BARANG untuk mulai.</div>';
+    wrap.innerHTML = '<div class="empty"><span class="big">⬢</span>Tidak ada pekerjaan aktif.<br>Tekan + KASIH BARANG untuk mulai.</div>';
     return;
   }
   const byWorker = {};
@@ -521,7 +509,7 @@ window.openJobModal = function(){
   $('jm_satuan').value = 'lusin'; $('jm_preview').style.display = 'none';
 
   updateTarifFromJenis();
-  openModal('jobModal');
+  window.openModal('jobModal');
 };
 
 function updateTarifFromJenis(){
@@ -546,9 +534,9 @@ function updateJobPreview(){
     const total = hitungUpah(pcs, tarif, satuan);
     let detail;
     if(satuan === 'lusin'){
-      detail = `${pcs} ÷ 12 = ${fmtNum(pcs/12)} lusin<br>${fmtNum(pcs/12)} × ${rp(tarif)} = <b>${rp(total)}</b>`;
+      detail = `${pcs} / 12 = ${fmtNum(pcs/12)} lusin<br>${fmtNum(pcs/12)} x ${rp(tarif)} = <b>${rp(total)}</b>`;
     }else{
-      detail = `${pcs} × ${rp(tarif)} = <b>${rp(total)}</b>`;
+      detail = `${pcs} x ${rp(tarif)} = <b>${rp(total)}</b>`;
     }
     box.innerHTML = `Perhitungan otomatis:<br>${detail}`;
     box.style.display = 'block';
@@ -608,7 +596,7 @@ window.simpanPekerjaan = async function(){
   S.jobs.push(job);
 
   toast('✓ Pekerjaan tersimpan');
-  closeModal('jobModal');
+  window.closeModal('jobModal');
   renderAll();
 };
 
@@ -628,7 +616,7 @@ window.openDone = function(jobId){
     <div class="info-line"><span>Tarif</span><span>${rp(job.tarif)} / ${job.satuan}</span></div>`;
   $('done_jumlah').value = job.jumlah_awal;
   updateDonePreview();
-  openModal('doneModal');
+  window.openModal('doneModal');
 };
 
 function updateDonePreview(){
@@ -639,19 +627,19 @@ function updateDonePreview(){
   const selEl = $('done_selisih'), prev = $('done_preview');
 
   if(selisih === 0){ selEl.textContent = 'Jumlah sama dengan awal.'; selEl.style.color = 'var(--dim)'; }
-  else if(selisih < 0){ selEl.textContent = `⚠ Kurang ${Math.abs(selisih)} pcs dari awal.`; selEl.style.color = 'var(--warn)'; }
-  else{ selEl.textContent = `⚠ Lebih ${selisih} pcs dari awal.`; selEl.style.color = 'var(--warn)'; }
+  else if(selisih < 0){ selEl.textContent = `Kurang ${Math.abs(selisih)} pcs dari awal.`; selEl.style.color = 'var(--warn)'; }
+  else{ selEl.textContent = `Lebih ${selisih} pcs dari awal.`; selEl.style.color = 'var(--warn)'; }
 
   const total = hitungUpah(pcs, job.tarif, job.satuan);
   let detail = job.satuan === 'lusin'
-    ? `${pcs} ÷ 12 = ${fmtNum(pcs/12)} lusin × ${rp(job.tarif)} = <b>${rp(total)}</b>`
-    : `${pcs} × ${rp(job.tarif)} = <b>${rp(total)}</b>`;
+    ? `${pcs} / 12 = ${fmtNum(pcs/12)} lusin x ${rp(job.tarif)} = <b>${rp(total)}</b>`
+    : `${pcs} x ${rp(job.tarif)} = <b>${rp(total)}</b>`;
   prev.innerHTML = `Total upah: ${detail}`;
 }
 
 window.konfirmasiSelesai = async function(){
   const job = S.jobs.find(j => j.id === S.currentDoneJobId);
-  if(!job || job.status !== 'aktif'){ toast('Pekerjaan sudah selesai', true); closeModal('doneModal'); return; }
+  if(!job || job.status !== 'aktif'){ toast('Pekerjaan sudah selesai', true); window.closeModal('doneModal'); return; }
   const pcs = parseInt($('done_jumlah').value);
   if(!pcs || pcs <= 0){ toast('Jumlah tidak valid', true); return; }
 
@@ -662,7 +650,7 @@ window.konfirmasiSelesai = async function(){
   job.selesai_at = nowISO();
   await DB.saveJob(job);
 
-  closeModal('doneModal');
+  window.closeModal('doneModal');
   toast('✓ Selesai — ' + rp(total) + ' masuk buku gaji');
   S.currentDoneJobId = null;
   renderAll();
@@ -808,7 +796,7 @@ window.openWorkerModal = function(){
   S.editingWorkerId = null;
   $('wm_title').textContent = 'Tambah Pekerja';
   $('wm_nama').value = ''; $('wm_status').value = 'aktif';
-  openModal('workerModal');
+  window.openModal('workerModal');
 };
 window.editWorker = function(id){
   const w = S.workers.find(x => x.id === id);
@@ -816,7 +804,7 @@ window.editWorker = function(id){
   S.editingWorkerId = id;
   $('wm_title').textContent = 'Ubah Pekerja';
   $('wm_nama').value = w.nama; $('wm_status').value = w.status;
-  openModal('workerModal');
+  window.openModal('workerModal');
 };
 window.simpanWorker = async function(){
   const nama = $('wm_nama').value.trim();
@@ -832,7 +820,7 @@ window.simpanWorker = async function(){
     await DB.saveWorker(w);
     S.workers.push(w);
   }
-  closeModal('workerModal');
+  window.closeModal('workerModal');
   toast('✓ Tersimpan');
   renderAll();
 };
@@ -894,10 +882,9 @@ function renderAll(){
 }
 
 /* ═══════════════════════════════════════════════════════════
-   EVENT LISTENERS (dipanggil setelah DOM ready)
+   EVENT LISTENERS
    ═══════════════════════════════════════════════════════════ */
 function bindEvents(){
-  // Job modal
   $('jm_jenis').addEventListener('change', e => {
     const v = e.target.value;
     $('jm_newJenis').style.display = v === '__baru__' ? 'block' : 'none';
@@ -908,7 +895,6 @@ function bindEvents(){
   $('jm_satuan').addEventListener('change', updateJobPreview);
   $('done_jumlah').addEventListener('input', updateDonePreview);
 
-  // Filter
   $('gajiWorkerFilter').addEventListener('change', e => {
     S.gajiWorkerFilter = e.target.value; renderGaji();
   });
@@ -916,12 +902,10 @@ function bindEvents(){
     S.riwayatWorkerFilter = e.target.value; renderRiwayat();
   });
 
-  // Klik luar modal
   document.querySelectorAll('.modal-bg').forEach(bg => {
     bg.addEventListener('click', e => { if(e.target === bg) bg.classList.remove('show'); });
   });
 
-  // Enter = login
   $('loginPassword').addEventListener('keydown', e => {
     if(e.key === 'Enter') $('btnLogin').click();
   });
@@ -934,13 +918,11 @@ window.addEventListener('DOMContentLoaded', async () => {
   bindEvents();
   tickClock(); setInterval(tickClock, 1000);
 
-  // Mode note
   if(!isOnline){
     $('authModeNote').style.display = 'block';
     $('authModeNote').textContent = '⚠ Mode demo (localStorage). Isi kredensial Supabase di supabase.js untuk online.';
   }
 
-  // Cek session
   try{
     const user = await auth.currentUser();
     if(user){
