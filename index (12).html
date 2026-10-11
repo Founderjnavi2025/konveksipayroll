@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#050a0f">
+<title>KONVEKSI HUD</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+<!-- ════════════════ LOADING ════════════════ -->
+<div id="bootScreen" class="boot-screen">
+  <div class="boot-logo">KONVEKSI <span>HUD</span></div>
+  <div class="boot-spinner"></div>
+</div>
+
+<!-- ════════════════ HALAMAN LOGIN ════════════════ -->
+<div class="page-full" id="page-login" style="display:none;">
+  <div class="auth-box">
+    <div class="logo-large">KONVEKSI <span>HUD</span></div>
+    <div class="auth-sub" id="loginSub">Masuk ke akun Anda</div>
+
+    <label class="f">Email</label>
+    <input type="email" id="loginEmail" placeholder="nama@email.com" autocomplete="email">
+
+    <label class="f">Password</label>
+    <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password">
+
+    <button class="btn btn-primary" id="btnLogin" onclick="doLogin()">MASUK</button>
+    <button class="btn btn-ghost" id="btnSignup" onclick="doSignup()">BELUM PUNYA AKUN? DAFTAR</button>
+    <div class="hint" style="text-align:center;margin-top:12px;">
+      Akun pertama yang dibuat di sistem akan menjadi <b>Super Admin</b>.
+    </div>
+    <div class="hint" id="authModeNote" style="text-align:center;margin-top:8px;color:var(--warn);display:none;"></div>
+  </div>
+</div>
+
+<!-- ════════════════ HALAMAN SUPER ADMIN ════════════════ -->
+<div class="page-full" id="page-superadmin" style="display:none;">
+  <header>
+    <div class="logo">KONVEKSI <span>HUD</span></div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div class="clock" id="saClock">--:--</div>
+      <button class="btn-logout" onclick="doLogout()">KELUAR</button>
+    </div>
+  </header>
+
+  <div class="page" style="display:block;max-width:900px;">
+    <h2 class="section">Ringkasan Platform</h2>
+    <div class="stat-grid" id="saStats"></div>
+
+    <h2 class="section">Daftar Room Konveksi</h2>
+    <button class="btn btn-primary" onclick="openRoomModal()">+ BUAT ROOM BARU</button>
+    <div id="saRoomList" style="margin-top:14px;"></div>
+  </div>
+</div>
+
+<!-- ════════════════ HALAMAN PILIH ROOM (untuk owner) ════════════════ -->
+<div class="page-full" id="page-roompicker" style="display:none;">
+  <header>
+    <div class="logo">KONVEKSI <span>HUD</span></div>
+    <button class="btn-logout" onclick="doLogout()">KELUAR</button>
+  </header>
+  <div class="page" style="display:block;">
+    <h2 class="section">Room Konveksi Anda</h2>
+    <div id="pickerList"></div>
+    <div id="pickerEmpty" class="empty" style="display:none;">
+      <span class="big">⬢</span>
+      Anda belum memiliki room.<br>
+      Hubungi Super Admin untuk dibuatkan room.
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════ HALAMAN ROOM (aplikasi HUD utama) ════════════════ -->
+<div class="page-full" id="page-room" style="display:none;">
+  <header>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <button class="btn-back" onclick="exitRoom()">←</button>
+      <div>
+        <div class="logo" id="roomTitle">KONVEKSI HUD</div>
+        <div class="room-sub" id="roomSub">—</div>
+      </div>
+    </div>
+    <div class="clock" id="roomClock">--:--</div>
+  </header>
+
+  <!-- HUD -->
+  <div class="page active" id="page-hud">
+    <h2 class="section">Status Pekerja</h2>
+    <div id="hudList"></div>
+  </div>
+
+  <!-- BUKU GAJI -->
+  <div class="page" id="page-gaji">
+    <h2 class="section">Buku Gaji</h2>
+    <select class="mini" id="gajiWorkerFilter"><option value="">— Semua Pekerja —</option></select>
+    <div class="chips" id="gajiWeekChips"></div>
+    <div id="gajiList"></div>
+    <div id="gajiTotal"></div>
+    <h2 class="section">Rekap Semua Pekerja</h2>
+    <div id="gajiRekap" class="rekap-box"></div>
+  </div>
+
+  <!-- PEKERJA -->
+  <div class="page" id="page-pekerja">
+    <h2 class="section">Daftar Pekerja</h2>
+    <button class="btn btn-primary" onclick="openWorkerModal()">+ TAMBAH PEKERJA</button>
+    <div id="workerList" style="margin-top:14px;"></div>
+    <h2 class="section">Riwayat Pekerjaan</h2>
+    <select class="mini" id="riwayatWorkerFilter"><option value="">— Semua Pekerja —</option></select>
+    <div class="chips" id="riwayatWeekChips"></div>
+    <div id="riwayatList"></div>
+  </div>
+
+  <!-- FAB -->
+  <button class="fab" onclick="openJobModal()">＋ KASIH BARANG</button>
+
+  <!-- NAV BAWAH -->
+  <nav>
+    <button class="active" data-page="hud" onclick="switchRoomPage('hud')"><span class="ico">⬢</span>HUD</button>
+    <button data-page="gaji" onclick="switchRoomPage('gaji')"><span class="ico">▤</span>BUKU GAJI</button>
+    <button data-page="pekerja" onclick="switchRoomPage('pekerja')"><span class="ico">☰</span>PEKERJA</button>
+  </nav>
+</div>
+
+<!-- ════════════════ MODAL: BUAT/EDIT ROOM ════════════════ -->
+<div class="modal-bg" id="roomModal">
+  <div class="modal">
+    <h3 id="rm_title">Buat Room Baru</h3>
+    <label class="f">Nama Konveksi</label>
+    <input type="text" id="rm_nama" placeholder="cth: Konveksi Berkah Jaya">
+    <label class="f">Slug Room (unik, huruf kecil, tanpa spasi)</label>
+    <input type="text" id="rm_slug" placeholder="cth: berkah-jaya" oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9-]/g,'')">
+    <label class="f">Nama Pemilik</label>
+    <input type="text" id="rm_owner" placeholder="cth: Pak Budi">
+    <label class="f">Email Pemilik (untuk login)</label>
+    <input type="email" id="rm_email" placeholder="cth: budi@email.com">
+    <label class="f">Password Awal Pemilik</label>
+    <input type="text" id="rm_password" placeholder="minimal 6 karakter" value="konveksi123">
+    <label class="f">Kontak (opsional)</label>
+    <input type="text" id="rm_kontak" placeholder="08xx...">
+    <label class="f">Paket</label>
+    <select id="rm_paket">
+      <option value="basic">Basic</option>
+      <option value="pro">Pro</option>
+      <option value="enterprise">Enterprise</option>
+    </select>
+    <div class="row2">
+      <div>
+        <label class="f">Mulai</label>
+        <input type="date" id="rm_mulai">
+      </div>
+      <div>
+        <label class="f">Berakhir</label>
+        <input type="date" id="rm_berakhir">
+      </div>
+    </div>
+    <label class="f">Status</label>
+    <select id="rm_status">
+      <option value="aktif">Aktif</option>
+      <option value="ditangguhkan">Ditangguhkan</option>
+      <option value="kedaluwarsa">Kedaluwarsa</option>
+    </select>
+    <div class="divider"></div>
+    <button class="btn btn-done" onclick="saveRoom()">SIMPAN</button>
+    <button class="btn btn-ghost" onclick="closeModal('roomModal')">BATAL</button>
+  </div>
+</div>
+
+<!-- ════════════════ MODAL: KASIH BARANG ════════════════ -->
+<div class="modal-bg" id="jobModal">
+  <div class="modal">
+    <h3>＋ Kasih Barang</h3>
+    <label class="f">Nama Pekerja</label>
+    <select id="jm_worker"></select>
+    <input type="text" id="jm_newWorker" placeholder="Atau ketik nama pekerja baru..." style="margin-top:6px;">
+    <label class="f">Nama Barang</label>
+    <input type="text" id="jm_barang" placeholder="cth: Kaos, Kemeja, Jaket">
+    <label class="f">Jenis Pekerjaan</label>
+    <select id="jm_jenis"></select>
+    <input type="text" id="jm_newJenis" placeholder="Atau ketik jenis pekerjaan baru..." style="margin-top:6px;">
+    <label class="f">Jumlah Barang (pcs)</label>
+    <input type="number" id="jm_jumlah" placeholder="cth: 150" inputmode="numeric">
+    <div class="hint">Masukkan jumlah asli dalam pcs. Aplikasi otomatis menghitung lusin.</div>
+    <label class="f">Tarif Pekerjaan</label>
+    <div class="row2">
+      <input type="number" id="jm_tarif" placeholder="cth: 8000" inputmode="numeric">
+      <select id="jm_satuan">
+        <option value="lusin">per Lusin</option>
+        <option value="pcs">per Pcs</option>
+      </select>
+    </div>
+    <div class="hint" id="jm_tarifHint">Tarif tersimpan untuk jenis ini akan dipakai otomatis.</div>
+    <div class="calc-preview" id="jm_preview" style="display:none;"></div>
+    <div class="divider"></div>
+    <button class="btn btn-done" onclick="simpanPekerjaan()">SIMPAN PEKERJAAN</button>
+    <button class="btn btn-ghost" onclick="closeModal('jobModal')">BATAL</button>
+  </div>
+</div>
+
+<!-- ════════════════ MODAL: SELESAI ════════════════ -->
+<div class="modal-bg" id="doneModal">
+  <div class="modal">
+    <h3>Konfirmasi Selesai</h3>
+    <div id="doneInfo"></div>
+    <label class="f" style="margin-top:12px;">Jumlah Selesai (pcs)</label>
+    <input type="number" id="done_jumlah" inputmode="numeric">
+    <div class="hint" id="done_selisih"></div>
+    <div class="calc-preview" id="done_preview"></div>
+    <div class="divider"></div>
+    <button class="btn btn-done" onclick="konfirmasiSelesai()">✓ KONFIRMASI SELESAI</button>
+    <button class="btn btn-ghost" onclick="closeModal('doneModal')">BATAL</button>
+  </div>
+</div>
+
+<!-- ════════════════ MODAL: PEKERJA ════════════════ -->
+<div class="modal-bg" id="workerModal">
+  <div class="modal">
+    <h3 id="wm_title">Tambah Pekerja</h3>
+    <label class="f">Nama Pekerja</label>
+    <input type="text" id="wm_nama" placeholder="Nama lengkap / panggilan">
+    <label class="f">Status</label>
+    <select id="wm_status">
+      <option value="aktif">Aktif</option>
+      <option value="nonaktif">Nonaktif</option>
+    </select>
+    <div class="divider"></div>
+    <button class="btn btn-done" onclick="simpanWorker()">SIMPAN</button>
+    <button class="btn btn-ghost" onclick="closeModal('workerModal')">BATAL</button>
+  </div>
+</div>
+
+<!-- ════════════════ TOAST ════════════════ -->
+<div id="toast"></div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
